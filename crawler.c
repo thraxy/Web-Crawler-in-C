@@ -14,13 +14,13 @@
 #define MAX_QUE_SIZE 1000
 
 // URL Struct
-typedef struct {
+ struct url_info{
     char url[MAX_URL_LENGTH];
     char domain[MAX_URL_LENGTH];
-} url_info;
-
+} ;
+typedef struct url_info url_info;
 // Queue Struct
-typedef struct {
+struct queue{
     url_info *url_array[MAX_QUE_SIZE];
     int front;
     int rear;
@@ -28,10 +28,10 @@ typedef struct {
     pthread_mutex_t lock;
     pthread_cond_t empty;
     pthread_cond_t full;
-} queue;
+} ;
 
 // Global Variables
-queue queue;
+typedef struct queue queue;
 int num_threads;
 
 // initialize queue
@@ -65,7 +65,7 @@ void enqueue(queue *q, url_info *url) {
     }
     // add url to queue
     q->rear = (q->rear + 1) % MAX_QUE_SIZE;
-    url.info *url = malloc(sizeof(url_info));
+    url_info *url = malloc(sizeof(url_info));
     strcpy(url->url, url->url);
     strcpy(url->domain, url->domain);
     q->url_array[q->rear] = url;
@@ -76,7 +76,7 @@ void enqueue(queue *q, url_info *url) {
     pthread_mutex_unlock(&q->lock);
 }
 
-url_info *dequeue(queue *q) {
+void *dequeue(queue *q) {
     // lock queue
     pthread_mutex_lock(&q->lock);
     // wait until queue is not empty
@@ -130,7 +130,7 @@ void *crawler(void *arg) {
         
         if (res != CURLE_OK) {
             fprintf(stderr, "Error: curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-            continue(1);
+            continue;
         }
         // open file
         // check for errors
@@ -138,7 +138,7 @@ void *crawler(void *arg) {
         fp = fopen(filename, "r");
         if (!fp) {
             fprintf(stderr, "Error: fopen() failed\n");
-            continue(1);
+            continue;
         }
         // write url to file
         // check for errors
@@ -258,3 +258,4 @@ int main (int argc, char *argv[]) {
         }
     }
 }
+  
