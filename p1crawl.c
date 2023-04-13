@@ -3,7 +3,7 @@
 #include <pthread.h>
 
 //the constants 
-#define MAX_URL_LENGTH 256
+#define MAX_URL_LENGTH 200
 #define MAX_PAGES_TO_CRAWL 1000
 #define NUM_THREADS 10
 
