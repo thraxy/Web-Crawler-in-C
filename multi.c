@@ -1,15 +1,6 @@
-/***************************************************************************
- * 
- * 
- * 
- * 
- * 
- * To compile:
- *      gcc crawler.c $(pkg-config --cflags --libs libxml-2.0 libcurl lpthread)
- *                          or
- *      gcc crawler.c `pkg-config --cflags --libs libxml-2.0 libcurl lpthread`
- */
- 
+// To Compile:
+//              gcc multi.c `pkg-config --cflags --libs libxml-2.0 libcurl`
+
 // parameters for the crawler
 int max_connection = 200; // max concurrent connections
 int max_total = 100; // max total connections
@@ -262,8 +253,6 @@ int htmlVerif(char *ctype)
  
 int main(void)
 {
-
-    
     // signal handler for Ctrl-C
     // when Ctrl-C is pressed, the program will exit
     signal(SIGINT, sighandler);
@@ -337,6 +326,7 @@ int main(void)
         CURLMsg *multir = NULL;
         // curl_multi_info_read returns CURLMsg structure pointer if there is a message to read
         while((multir = curl_multi_info_read(multi_handle, &msgs_left))) {
+            fprintf(outputFile,"Thread:%s\n", url);
             // if the message is done
             if(multir->msg == CURLMSG_DONE) {
                 // get the handle of the message
@@ -354,14 +344,13 @@ int main(void)
             curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &res_status);
             // check if the http status is 200 or not (200 means HTTP OK)
             if(res_status == 200) {
-            //
             char *ctype;
             // get the content type of the message
             curl_easy_getinfo(handle, CURLINFO_CONTENT_TYPE, &ctype);
             // print the url, content type, and the size of the content
             printf("[%d] HTTP 200 (%s): %s\n", complete, ctype, url);
-            // print the url to the output file
-            fprintf(outputFile, "%s\n", url);
+            // print the url to the output file          
+            fprintf(outputFile, "[Url Found#: %d] %s\n************************************\n", complete, url);
             // if the content type is text/html and the size of the content is greater than 100
             if(htmlVerif(ctype) && mem->size > 100) {
                 // inprogress is the number of pending transfers to process
