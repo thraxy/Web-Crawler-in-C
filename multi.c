@@ -7,7 +7,7 @@ int max_total = 100; // max total connections
 int max_requests = 50; // max requests per connection
 int max_links = 5; // max links to follow per page
 int follow_relative_links = 0; // follow relative links
-// commented out because we are using 
+// commented out because we are using a file with the starting links 
 //char *start_page = "https://www.rutgers.edu/"; // start page
  
 
@@ -26,14 +26,15 @@ int follow_relative_links = 0; // follow relative links
 pthread_mutex_t lock;
 
 // pending interrupt flag for interrupt handling
-int pending_interrupt = 0;
+int pendingInterrupt = 0;
+
 // function to handle interrupt signals
-// dummy parameter is required for signal handler function
+// a dummy parameter is required for signal handler function
 // but not used in the function
-void sighandler(int dummy)
+void flagger(int signalFlag)
 {
     // set pending interrupt flag to 1 to indicate interrupt
-    pending_interrupt = 1;
+    pendingInterrupt = 1;
 }
  
 /* resizable buffer */
@@ -44,35 +45,44 @@ typedef struct {
   char *buf; // buffer to store the response
   size_t size; // size of the buffer
 } responsememory; // struct name
+
+int htmlVerif(char *ctype)
+{
+    // check if the content type is text/html or not
+    // if the content type is text/html, return 1
+    return ctype != NULL && strlen(ctype) > 10 && strstr(ctype, "text/html");
+}
  
+
+
 // function to resize the buffer
 // this is important for the curl library to store the response
 // the buffer is resized as needed
 // this helps to store the response in the buffer
-size_t grow_buffer(void *contents, size_t sz, size_t nmemb, void *ctx)
+size_t resizerBuffer(void *contents, size_t eleSize, size_t nmemb, void *bufferCont)
 {
     // calculate the size of the buffer
     // nmemb is the number of elements
-    // sz is the size of each element
+    // eleSize is the size of each element
     // realsize is the total size of the buffer
-    // ctx is the context of the buffer
+    // bufferCont is the context of the buffer
     // mem is the memory struct
-    size_t realsize = sz * nmemb;
-    responsememory *mem = (responsememory*) ctx;
+    size_t realsize = nmemb * eleSize;
+    responsememory *mem = (responsememory*) bufferCont;
     // reallocate the buffer to the new size 
     // if the buffer is not large enough
     // if the buffer is not large enough, the buffer is reallocated
     // to the new size
     // if the buffer is large enough, the buffer is not reallocated
     // and the new data is copied to the buffer
-    char *ptr = realloc(mem->buf, mem->size + realsize);
-    if(!ptr) {
+    char *memoryPtr = realloc(mem->buf, mem->size + realsize);
+    if(!memoryPtr) {
         /* out of memory */
         printf("not enough memory (realloc returned NULL)\n");
         return 0;
     }
     // copy the new data to the buffer
-    mem->buf = ptr;
+    mem->buf = memoryPtr;
     memcpy(&(mem->buf[mem->size]), contents, realsize);
     // update the size of the buffer
     mem->size += realsize;
@@ -86,7 +96,7 @@ size_t grow_buffer(void *contents, size_t sz, size_t nmemb, void *ctx)
 // for a URL
 // the reason why it is important is that the handle is used to
 // make the HTTP request
-CURL *make_handle(char *url)
+CURL *handleCreator(char *url)
 {
     // initialize the curl handle
     CURL *handle = curl_easy_init();
@@ -106,19 +116,22 @@ CURL *make_handle(char *url)
     mem->size = 0;
     // allocate the buffer to 1
     mem->buf = malloc(1);
-    // set the write function to grow_buffer function 
+    // set the write function to resizerBuffer function 
     // we do this because we want to store the response in the buffer
-    curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, grow_buffer);
+    curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, resizerBuffer);
     // set the write data to the memory struct
     curl_easy_setopt(handle, CURLOPT_WRITEDATA, mem);
     // set the private data to the memory struct
     curl_easy_setopt(handle, CURLOPT_PRIVATE, mem);
+
+    // curl documentation says it is best to include all of these options when using curl
+    // to reduce issues and problems with compiling
  
-    /* For completeness */
     // we do not need all these options for our crawler but we set them
     // for completeness.
     // these options are important for the curl library to make a HTTP
     // request
+
     // accept_encoding is set to empty string because we do not want to
     // accept any encoding
     curl_easy_setopt(handle, CURLOPT_ACCEPT_ENCODING, "");
@@ -134,9 +147,6 @@ CURL *make_handle(char *url)
     // set the connect timeout to 2 seconds
     // after 2 seconds, the request will timeout
     curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, 2L);
-    // set the cookie file to empty string
-    // we do not want to use cookies
-    curl_easy_setopt(handle, CURLOPT_COOKIEFILE, "");
     // set the filetime to 1
     // we want to get the file time
     curl_easy_setopt(handle, CURLOPT_FILETIME, 1L);
@@ -151,11 +161,6 @@ CURL *make_handle(char *url)
     // unrestricted authentication is a way to authenticate
     // without using a username and password
     curl_easy_setopt(handle, CURLOPT_UNRESTRICTED_AUTH, 1L);
-    // set the proxy authentication to any
-    // we want to use any authentication
-    // we do not need this because we are not using a proxy
-    // but we set it for completeness
-    curl_easy_setopt(handle, CURLOPT_PROXYAUTH, CURLAUTH_ANY);
     // set the expect 100 timeout to 0
     // we do not want to wait for 100 timeout
     // 100 timeout is a timeout that is used to wait for a 100 response
@@ -171,10 +176,10 @@ CURL *make_handle(char *url)
 // mem is the memory struct
 // url is the URL
 // this function is used to find all the links in the HTML
-size_t follow_links(CURLM *multi_handle, responsememory *mem, char *url)
+size_t linkFinder(CURLM *multi_handle, responsememory *mem, char *url)
 {
     // int opts defines the options for the HTML parser
-    int htmlopts = HTML_PARSE_NOBLANKS | HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING | HTML_PARSE_NONET;
+    int htmlopts =  HTML_PARSE_NOERROR | HTML_PARSE_NOBLANKS | HTML_PARSE_NONET | HTML_PARSE_NOWARNING;
     // parse the HTML
     // the HTML is stored in the buffer
     // the HTML parser will parse the HTML and store the result in the doc
@@ -189,17 +194,17 @@ size_t follow_links(CURLM *multi_handle, responsememory *mem, char *url)
     // context is the context for the xpath
     xmlXPathContextPtr context = xmlXPathNewContext(doc);
     // if the context is NULL, xmlXPathNewContext failed to create the context
-    xmlXPathObjectPtr result = xmlXPathEvalExpression(xpath, context);
+    xmlXPathObjectPtr xmlres = xmlXPathEvalExpression(xpath, context);
     // if the result is NULL, xmlXPathEvalExpression failed to evaluate the xpath
     // free the context
     xmlXPathFreeContext(context);
-    if(!result)
+    if(!xmlres)
         return 0;
     // nodeset is the set of nodes that match the xpath
-    xmlNodeSetPtr nodeset = result->nodesetval;
+    xmlNodeSetPtr nodeset = xmlres->nodesetval;
     // if the nodeset is empty, xmlXPathNodeSetIsEmpty failed to check if the nodeset is empty
     if(xmlXPathNodeSetIsEmpty(nodeset)) {
-        xmlXPathFreeObject(result);
+        xmlXPathFreeObject(xmlres);
         return 0;
     }
     // count is the number of links
@@ -228,9 +233,9 @@ size_t follow_links(CURLM *multi_handle, responsememory *mem, char *url)
         if(!link || strlen(link) < 20)
             continue;
         // if the link is not a HTTP or HTTPS link, we skip the link
-        if(!strncmp(link, "http://", 7) || !strncmp(link, "https://", 8)) {
+        if(!strncmp(link, "https://", 8 || !strncmp(link, "http://", 7) )) {
             // add the link to the multi handle
-            curl_multi_add_handle(multi_handle, make_handle(link));
+            curl_multi_add_handle(multi_handle, handleCreator(link));
         // if count is greater than the max link per page, we stop
         if(count++ == max_links)
             break;
@@ -239,23 +244,18 @@ size_t follow_links(CURLM *multi_handle, responsememory *mem, char *url)
         xmlFree(link);
     }
     // free the result
-  xmlXPathFreeObject(result);
+  xmlXPathFreeObject(xmlres);
   // free the doc
   return count;
 }
  
-int htmlVerif(char *ctype)
-{
-    // check if the content type is text/html or not
-    // if the content type is text/html, return 1
-    return ctype != NULL && strlen(ctype) > 10 && strstr(ctype, "text/html");
-}
+
  
 int main(void)
 {
     // signal handler for Ctrl-C
     // when Ctrl-C is pressed, the program will exit
-    signal(SIGINT, sighandler);
+    signal(SIGINT, flagger);
     // libxml test version is used to check if the libxml2 version is compatible
     LIBXML_TEST_VERSION;
     // initialize the curl library globally
@@ -298,19 +298,20 @@ int main(void)
     char url[1000]; // create a char array for the url with a size of 1000
     while (fgets(url, sizeof(url), urlListFile) != NULL) { // while we are not at the end of   the file 
     //remove newline character from url
-  	    int len = strlen(url); // set len to the length of the url
-  	    if (len > 0 && url[len-1] == '\n') { // if the length is greater than 0 and the last character is a newline
-  		    url[len-1] = '\0'; // set the last character to null
+        int len = strlen(url); // set len to the length of the url
+        if (len > 0 && url[len-1] == '\n') { // if the length is greater than 0 and the last character is a newline
+            url[len-1] = '\0'; // set the last character to null
         }
 
     /* sets html start page */
-    curl_multi_add_handle(multi_handle, make_handle(url));
+    curl_multi_add_handle(multi_handle, handleCreator(url));
     
-    int msgs_left; // number of messages left to process
+    int msgsRemaining; // number of messages left to process
     int inprogress = 0; // number of pending transfers to process
     int complete = 0; // number of transfers completed so far
-    int still_running = 1; // number of transfers still in progress
-    while(still_running && !pending_interrupt) {
+    int htmlTransferRunning = 1; // number of transfers still in progress
+
+    while(htmlTransferRunning && !pendingInterrupt) {
         // numfds will be set to the maximum file descriptor value + 1
         int numfds;
         // we start some action by calling perform right away
@@ -320,13 +321,13 @@ int main(void)
         // numfds is an input argument for select function
         // file descriptors are used for input/output operations
         curl_multi_wait(multi_handle, NULL, 0, 1000, &numfds);
-        curl_multi_perform(multi_handle, &still_running);
+        curl_multi_perform(multi_handle, &htmlTransferRunning);
  
         /* See how the transfers went */
         CURLMsg *multir = NULL;
         // curl_multi_info_read returns CURLMsg structure pointer if there is a message to read
-        while((multir = curl_multi_info_read(multi_handle, &msgs_left))) {
-            fprintf(outputFile,"Thread:%s\n", url);
+        while((multir = curl_multi_info_read(multi_handle, &msgsRemaining))) {
+            fprintf(outputFile,"Thread: %s\n", url);
             // if the message is done
             if(multir->msg == CURLMSG_DONE) {
                 // get the handle of the message
@@ -339,33 +340,33 @@ int main(void)
                 curl_easy_getinfo(handle, CURLINFO_EFFECTIVE_URL, &url);
             // get the result of the message (CURLE_OK means no error)
             if(multir->data.result == CURLE_OK) {
-                long res_status;
+                long resCode;
                 // get the http status code of the message (200 means HTTP OK)
-            curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &res_status);
+            curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &resCode);
             // check if the http status is 200 or not (200 means HTTP OK)
-            if(res_status == 200) {
+            if(resCode == 200) {
             char *ctype;
             // get the content type of the message
             curl_easy_getinfo(handle, CURLINFO_CONTENT_TYPE, &ctype);
             // print the url, content type, and the size of the content
-            printf("[%d] HTTP 200 (%s): %s\n", complete, ctype, url);
+            printf("\033[1;32m[%d]\033[0m\033[1;34mHTTP Request Completed:\033[0m \033[1;36m%s\n\033[0m", complete, url);
             // print the url to the output file          
-            fprintf(outputFile, "[Url Found#: %d] %s\n************************************\n", complete, url);
+            fprintf(outputFile, "***[Url Found#: %d][Content Type: %s]***\n %s\n************************************************************************\n", complete, ctype, url);
             // if the content type is text/html and the size of the content is greater than 100
             if(htmlVerif(ctype) && mem->size > 100) {
                 // inprogress is the number of pending transfers to process
                 // if the number of pending transfers to process is less than the maximum number of requests and the 
                 // number of completed transfers plus the number of pending transfers to process is less than the maximum number of total transfers
               if(inprogress < max_requests && (complete + inprogress) < max_total) {
-                inprogress += follow_links(multi_handle, mem, url);
-                still_running = 1;
+                inprogress += linkFinder(multi_handle, mem, url);
+                htmlTransferRunning = 1;
               }
             }
           }
           // else if the http status is not 200
           else {
             // print the url and the http status code to the console
-            printf("[%d] HTTP %d: %s\n", complete, (int) res_status, url);
+            printf("[%d] HTTP %d: %s\n", complete, (int) resCode, url);
                // print the url to the output file 
             fprintf(outputFile, "%s\n", url);
           }
@@ -373,7 +374,7 @@ int main(void)
         // else if there is an error with the message
         else {
             // print the url and the error message to the console
-          printf("[%d] Connection failure: %s\n", complete, url);
+          printf("\033[1;31m[%d] Connection failure:\033[0m \033[1;33m%s\n\033[0m", complete, url);
           fprintf(outputFile, "%s\n", url);
         }
         // remove the handle from the multi handle

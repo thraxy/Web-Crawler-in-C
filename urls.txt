@@ -1,3 +1,4 @@
 https://www.rutgers.edu
 https://www.rowan.edu
 https://www.example.com
+https://www.rutgers.com
