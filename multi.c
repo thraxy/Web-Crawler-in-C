@@ -1,4 +1,4 @@
-***************************************************************************
+/***************************************************************************
  * 
  * 
  * 
@@ -408,7 +408,9 @@ int main(void)
     // free the multi handle and the curl library
     curl_multi_cleanup(multi_handle);
     curl_global_cleanup();
+
     pthread_mutex_unlock(&lock); // unlock thread
     pthread_mutex_destroy(&lock); // destroy thread
+    
     return 0;
 }
