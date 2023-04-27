@@ -11,7 +11,7 @@
  */
  
 // parameters for the crawler
-int max_conn = 200; // max concurrent connections
+int max_connection = 200; // max concurrent connections
 int max_total = 100; // max total connections
 int max_requests = 50; // max requests per connection
 int max_link_per_page = 5; // max links to follow per page
@@ -262,6 +262,11 @@ int htmlVerif(char *ctype)
  
 int main(void)
 {
+
+    int msgs_left; // number of messages left to process
+    int inprogress = 0; // number of pending transfers to process
+    int complete = 0; // number of transfers completed so far
+    int still_running = 1; // number of transfers still in progress
     // signal handler for Ctrl-C
     // when Ctrl-C is pressed, the program will exit
     signal(SIGINT, sighandler);
@@ -272,7 +277,7 @@ int main(void)
     // multi handle is the handle for the curl library for multiple handles
     CURLM *multi_handle = curl_multi_init();
     // max_con is the maximum number of connections
-    curl_multi_setopt(multi_handle, CURLMOPT_MAX_TOTAL_CONNECTIONS, max_conn);
+    curl_multi_setopt(multi_handle, CURLMOPT_MAX_TOTAL_CONNECTIONS, max_connection);
     // max_host_con is the maximum number of connections per host
     curl_multi_setopt(multi_handle, CURLMOPT_MAX_HOST_CONNECTIONS, 6L);
  
@@ -315,10 +320,7 @@ int main(void)
     /* sets html start page */
     curl_multi_add_handle(multi_handle, make_handle(url));
     
-    int msgs_left; // number of messages left to process
-    int inprogress = 0; // number of pending transfers to process
-    int complete = 0; // number of transfers completed so far
-    int still_running = 1; // number of transfers still in progress
+    
     while(still_running && !pending_interrupt) {
         // numfds will be set to the maximum file descriptor value + 1
         int numfds;
