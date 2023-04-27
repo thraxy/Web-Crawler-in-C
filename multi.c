@@ -1,15 +1,8 @@
 // To Compile:
 //              gcc multi.c `pkg-config --cflags --libs libxml-2.0 libcurl`
 
-// parameters for the crawler
-int max_connection = 200; // max concurrent connections
-int max_total = 100; // max total connections
-int max_requests = 50; // max requests per connection
-int max_links = 5; // max links to follow per page
-int follow_relative_links = 0; // follow relative links
-// commented out because we are using a file with the starting links 
-//char *start_page = "https://www.rutgers.edu/"; // start page
- 
+// OS Crawler
+// Group: Mohammed Nabil Akbar, Charles Dalisay, Rahzirah Blocker
 
 // libraries
 #include <libxml/HTMLparser.h> // html parser for html parsing
@@ -22,11 +15,19 @@ int follow_relative_links = 0; // follow relative links
 #include <signal.h> // signal library for interrupt handling'
 #include <pthread.h> // pthread library for multithreading
 
+// parameters for the crawler
+// pending interrupt flag for interrupt handling
+int pendingInterrupt = 0;
+int max_connection = 200; // max concurrent connections
+int max_total = 100; // max total connections
+int max_requests = 50; // max requests per connection
+int max_links = 5; // max links to follow per page
+int follow_relative_links = 0; // follow relative links
+// commented out because we are using a file with the starting links 
+//char *start_page = "https://www.rutgers.edu/"; // start page
 // define mutex lock
 pthread_mutex_t lock;
 
-// pending interrupt flag for interrupt handling
-int pendingInterrupt = 0;
 
 // function to handle interrupt signals
 // a dummy parameter is required for signal handler function
