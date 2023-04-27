@@ -14,7 +14,7 @@
 int max_connection = 200; // max concurrent connections
 int max_total = 100; // max total connections
 int max_requests = 50; // max requests per connection
-int max_link_per_page = 5; // max links to follow per page
+int max_links = 5; // max links to follow per page
 int follow_relative_links = 0; // follow relative links
 // commented out because we are using 
 //char *start_page = "https://www.rutgers.edu/"; // start page
@@ -241,7 +241,7 @@ size_t follow_links(CURLM *multi_handle, responsememory *mem, char *url)
             // add the link to the multi handle
             curl_multi_add_handle(multi_handle, make_handle(link));
         // if count is greater than the max link per page, we stop
-        if(count++ == max_link_per_page)
+        if(count++ == max_links)
             break;
         }
         // free the link
@@ -263,10 +263,7 @@ int htmlVerif(char *ctype)
 int main(void)
 {
 
-    int msgs_left; // number of messages left to process
-    int inprogress = 0; // number of pending transfers to process
-    int complete = 0; // number of transfers completed so far
-    int still_running = 1; // number of transfers still in progress
+    
     // signal handler for Ctrl-C
     // when Ctrl-C is pressed, the program will exit
     signal(SIGINT, sighandler);
@@ -320,7 +317,10 @@ int main(void)
     /* sets html start page */
     curl_multi_add_handle(multi_handle, make_handle(url));
     
-    
+    int msgs_left; // number of messages left to process
+    int inprogress = 0; // number of pending transfers to process
+    int complete = 0; // number of transfers completed so far
+    int still_running = 1; // number of transfers still in progress
     while(still_running && !pending_interrupt) {
         // numfds will be set to the maximum file descriptor value + 1
         int numfds;
@@ -411,6 +411,6 @@ int main(void)
 
     pthread_mutex_unlock(&lock); // unlock thread
     pthread_mutex_destroy(&lock); // destroy thread
-    
+  
     return 0;
 }
