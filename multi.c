@@ -1,4 +1,4 @@
-/***************************************************************************
+***************************************************************************
  * 
  * 
  * 
@@ -178,7 +178,7 @@ CURL *make_handle(char *url)
 // mem is the memory struct
 // url is the URL
 // this function is used to find all the links in the HTML
-size_t follow_links(CURLM *multi_handle, memory *mem, char *url)
+size_t follow_links(CURLM *multi_handle, responsememory *mem, char *url)
 {
     // int opts defines the options for the HTML parser
     int htmlopts = HTML_PARSE_NOBLANKS | HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING | HTML_PARSE_NONET;
@@ -344,7 +344,7 @@ int main(void)
                 // get the url of the handle
                 curl_easy_getinfo(handle, CURLINFO_EFFECTIVE_URL, &url);
             // get the result of the message (CURLE_OK means no error)
-            if(m->data.result == CURLE_OK) {
+            if(multir->data.result == CURLE_OK) {
                 long res_status;
                 // get the http status code of the message (200 means HTTP OK)
             curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &res_status);
