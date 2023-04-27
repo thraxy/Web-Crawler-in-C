@@ -11,7 +11,7 @@
  */
  
 // parameters for the crawler
-int max_con = 200; // max concurrent connections
+int max_conn = 200; // max concurrent connections
 int max_total = 100; // max total connections
 int max_requests = 50; // max requests per connection
 int max_link_per_page = 5; // max links to follow per page
@@ -30,7 +30,9 @@ int follow_relative_links = 0; // follow relative links
 #include <math.h> // math library for random number generation
 #include <signal.h> // signal library for interrupt handling'
 #include <pthread.h> // pthread library for multithreading
- 
+
+// define mutex lock
+pthread_mutex_t lock;
 
 // pending interrupt flag for interrupt handling
 int pending_interrupt = 0;
@@ -270,7 +272,7 @@ int main(void)
     // multi handle is the handle for the curl library for multiple handles
     CURLM *multi_handle = curl_multi_init();
     // max_con is the maximum number of connections
-    curl_multi_setopt(multi_handle, CURLMOPT_MAX_TOTAL_CONNECTIONS, max_con);
+    curl_multi_setopt(multi_handle, CURLMOPT_MAX_TOTAL_CONNECTIONS, max_conn);
     // max_host_con is the maximum number of connections per host
     curl_multi_setopt(multi_handle, CURLMOPT_MAX_HOST_CONNECTIONS, 6L);
  
